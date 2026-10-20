@@ -23,6 +23,9 @@ trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+mode="${1:-full}"
+case "$mode" in start|wait|full) ;; *) echo 'Invalid lifecycle mode' >&2; exit 1 ;; esac
+if [ "$mode" != wait ]; then
 duration="${PREVIEW_DURATION:-60}"
 case "$duration" in 30|60|120) ;; *) echo 'Invalid preview duration' >&2; exit 1 ;; esac
 python3 - <<'PY'
@@ -73,9 +76,11 @@ done
 [ "$verified" = true ] || { echo 'Protected ingress could not be verified' >&2; exit 1; }
 [ "$(( $(date +%s) - started_epoch ))" -le 3000 ] || { echo 'Readiness exceeded the 50-minute budget' >&2; exit 1; }
 
-ready="$(date -u +%FT%TZ)"
-expires="$(date -u -d "+${duration} minutes" +%FT%TZ)"
-deadline=$(( $(date +%s) + duration * 60 ))
+readarray -t session < <(python3 "$PREVIEW_TOOLS_DIR/readiness.py" write "$url" "$duration")
+[ "${#session[@]}" -eq 3 ] || { echo 'Invalid readiness state' >&2; exit 1; }
+ready="${session[0]}"
+expires="${session[1]}"
+deadline="${session[2]}"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     printf '## BioLoop Preview — PR #%s\n\n' "$PREVIEW_PR"
@@ -87,10 +92,24 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '\nStop early with **Cancel workflow**. Data is synthetic and disappears on shutdown.\n'
   } >> "$GITHUB_STEP_SUMMARY"
 fi
-echo "Preview ready: PR #${PREVIEW_PR}, commit ${PREVIEW_SHA}, expires ${expires}. See the job summary for the URL."
+echo "Preview ready: ${url} (PR #${PREVIEW_PR}, commit ${PREVIEW_SHA}, expires ${expires})."
+if [ "$mode" = start ]; then
+  # Keep the tunnel alive between steps. The job's always-cleanup remains the
+  # final boundary if artifact publication fails before the wait step starts.
+  trap - EXIT INT TERM
+  exit 0
+fi
+else
+  readarray -t session < <(python3 "$PREVIEW_TOOLS_DIR/readiness.py" read)
+  [ "${#session[@]}" -eq 3 ] || { echo 'Invalid readiness state' >&2; exit 1; }
+  deadline="${session[2]}"
+  tunnel_pid="$(cat "$PREVIEW_STATE_DIR/tunnel.pid")"
+  [[ "$tunnel_pid" =~ ^[0-9]+$ ]] || { echo 'Invalid tunnel PID' >&2; exit 1; }
+fi
 services=(postgres signet_db mongo queue rhythm signet api secure_download celery_worker watch upload_poller ui)
 while [ "$(date +%s)" -lt "$deadline" ]; do
   kill -0 "$tunnel_pid" 2>/dev/null || { echo 'Tunnel stopped early' >&2; exit 1; }
+  [ "$(readlink -f "/proc/$tunnel_pid/exe" 2>/dev/null || true)" = "$PREVIEW_STATE_DIR/cloudflared" ] || { echo 'Tunnel process changed' >&2; exit 1; }
   for service in "${services[@]}"; do
     cid="$(compose ps -q "$service")"
     [ -n "$cid" ] || { echo "Service exited: $service" >&2; exit 1; }
