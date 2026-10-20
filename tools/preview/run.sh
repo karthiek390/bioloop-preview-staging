@@ -48,7 +48,7 @@ printf '%s  %s\n' "${tunnel[1]}" "$PREVIEW_STATE_DIR/cloudflared" | sha256sum --
 chmod 700 "$PREVIEW_STATE_DIR/cloudflared"
 "$PREVIEW_STATE_DIR/cloudflared" tunnel --help > "$PREVIEW_STATE_DIR/tunnel-help.txt"
 grep -q -- --allowed-mail "$PREVIEW_STATE_DIR/tunnel-help.txt"
-"$PREVIEW_STATE_DIR/cloudflared" tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:8080 \
+"$PREVIEW_STATE_DIR/cloudflared" tunnel --no-autoupdate --url http://127.0.0.1:8080 \
   --allowed-mail "$PREVIEW_ALLOWED_EMAILS" > "$PREVIEW_STATE_DIR/tunnel.log" 2>&1 &
 tunnel_pid=$!
 echo "$tunnel_pid" > "$PREVIEW_STATE_DIR/tunnel.pid"
