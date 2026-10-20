@@ -1,0 +1,386 @@
+require('module-alias/register');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+global.__basedir = path.join(__dirname, '..');
+const { PrismaClient } = require('@prisma/client');
+const _ = require('lodash/fp');
+const dayjs = require('dayjs');
+const config = require('config');
+
+const { normalize_name } = require('../src/services/project');
+const data = require('./seed_data/data');
+const { random_files } = require('./seed_data/random_paths');
+const { generate_data_access_logs } = require('./seed_data/data_access_logs');
+const { generate_staged_logs } = require('./seed_data/staged_logs');
+const { generate_stage_request_logs } = require('./seed_data/stage_request_logs');
+const { generate_date_range } = require('../src/services/datetime');
+const datasetService = require('../src/services/dataset');
+const { readUsersFromJSON } = require('../src/utils');
+
+const prisma = new PrismaClient();
+
+if (['production'].includes(config.get('mode'))) {
+  // exit if in production mode
+  console.error('Seed script should not be run in production mode. Run node src/scripts/init_prod_data.js instead.');
+  process.exit(1);
+}
+
+async function update_seq(table) {
+  // Get the current maximum value of the id column
+  const result = await prisma[table].aggregate({
+    _max: {
+      id: true,
+    },
+  });
+  const currentMaxId = result?._max?.id || 0;
+
+  // Reset the sequence to the current maximum value
+  await prisma.$executeRawUnsafe(`ALTER SEQUENCE ${table}_id_seq RESTART WITH ${currentMaxId + 1}`);
+}
+
+async function put_dataset_files({ dataset_id, num_files = 1000, max_depth = 5 }) {
+  const files = random_files(num_files, max_depth, dataset_id);
+  await prisma.dataset_file.deleteMany({
+    where: { dataset_id },
+  });
+  await datasetService.add_files({ dataset_id, data: files });
+}
+
+// Generates different values of space utilization metrics, by the hour, based
+// on the number of hours provided
+function create_metrics_per_hour(num_hours) {
+  const metrics_data = [];
+  let metricsTimestamp = new Date();
+  _.range(0, num_hours).forEach((hour_count) => {
+    const hour_metrics = data.metrics.map((m) => ({
+      ...m,
+      timestamp: metricsTimestamp,
+      usage: m.usage + Math.ceil(Math.random(0, hour_count) * 100),
+    }));
+    metrics_data.push(...hour_metrics);
+    metricsTimestamp = dayjs(metricsTimestamp).subtract(1, 'hour').toDate();
+  });
+  return metrics_data;
+}
+
+// Given an array of entities, inserts a random date per entity, which is helpful for creating
+// variability in the dates that get inserted into persistent storage
+function insert_random_dates(arr) {
+  const min_date = dayjs(
+    new Date(),
+  ).subtract(arr.length, 'month').toDate();
+
+  const arr_date_range = generate_date_range(
+    min_date,
+    new Date(),
+  );
+  const ret = arr.map((e) => ({
+    ...e,
+    date: arr_date_range[Math.floor(Math.random() * arr_date_range.length)],
+  }));
+
+  return ret;
+}
+
+// Generates num number of mock users
+function createRandomUsers(num) {
+  return _.range(0, num).map((i) => ({
+    username: `user-${i}`,
+    name: `name-${i}`,
+  }));
+}
+
+function runNotificationSeedScript(usernames) {
+  const scriptPath = path.join(global.__basedir, 'prisma', 'seed_data', 'seed-notifications.js');
+  usernames.forEach((username) => {
+    const result = spawnSync(
+      process.execPath,
+      [scriptPath, '--user', username, '--stable-only', '--force'],
+      {
+        cwd: global.__basedir,
+        env: process.env,
+        stdio: 'inherit',
+      },
+    );
+
+    if (result.status !== 0) {
+      throw new Error(`seed-notifications.js failed for user '${username}'`);
+    }
+  });
+}
+
+async function main() {
+  await Promise.allSettled(data.roles.map((role) => prisma.role.upsert({
+    where: { id: role.id },
+    create: role,
+    update: role,
+  })));
+
+  // Seed import sources for non-production environments.
+  // These paths match the directories created by workers/bin/init_dirs.sh.
+  const importSources = [
+    {
+      path: '/opt/sca/data/imports/genomics_lab_instrument_drop',
+      label: 'Genomics Lab',
+      description: 'Drop location for genomics lab instrument output',
+      sort_order: 1,
+    },
+    {
+      path: '/opt/sca/data/imports/proteomics_lab_instrument_drop',
+      label: 'Proteomics Lab',
+      description: 'Drop location for proteomics lab instrument output',
+      sort_order: 2,
+    },
+  ];
+  await Promise.all(
+    importSources.map((source) => prisma.import_source.upsert({
+      where: { path: source.path },
+      create: source,
+      update: { label: source.label, description: source.description, sort_order: source.sort_order },
+    })),
+  );
+  // eslint-disable-next-line no-console
+  console.log(`seeded ${importSources.length} import sources`);
+
+  // Create default admins
+  const additional_admins = readUsersFromJSON('admins.json');
+  const admin_data = insert_random_dates(data.admins.concat(additional_admins));
+  const admin_promises = admin_data.map((admin) => prisma.user.upsert({
+    where: { email: `${admin.username}@iu.edu` },
+    update: {},
+    create: {
+      username: admin.username,
+      email: `${admin.username}@iu.edu`,
+      cas_id: admin.username,
+      name: admin.name,
+      created_at: admin.date,
+      user_role: {
+        create: [{ role_id: 1 }],
+      },
+    },
+  }));
+
+  await Promise.all(admin_promises);
+
+  // create test user
+  const user_data = insert_random_dates(
+    data.users.concat(createRandomUsers(50)), // mock some extra users
+  );
+  const user_promises = user_data.map((user) => prisma.user.upsert({
+    where: { email: `${user.username}@iu.edu` },
+    update: {},
+    create: {
+      username: user.username,
+      email: `${user.username}@iu.edu`,
+      cas_id: user.username,
+      name: user.name,
+      created_at: user.date,
+      user_role: {
+        create: [{ role_id: 3 }],
+      },
+    },
+  }));
+
+  await Promise.all(user_promises);
+
+  // create operators
+  const operator_data = insert_random_dates(data.operators);
+  const operator_promises = operator_data.map((user) => prisma.user.upsert({
+    where: { email: `${user.username}@iu.edu` },
+    update: {},
+    create: {
+      username: user.username,
+      email: `${user.username}@iu.edu`,
+      cas_id: user.username,
+      name: user.name,
+      created_at: user.date,
+      user_role: {
+        create: [{ role_id: 2 }],
+      },
+    },
+  }));
+
+  await Promise.all(operator_promises);
+
+  const datasetPromises = data.datasets.map((dataset) => {
+    const { workflows, ...dataset_obj } = dataset;
+    if (workflows) {
+      dataset_obj.workflows = {
+        create: workflows.map((workflow_id) => ({ id: workflow_id })),
+      };
+    }
+    return prisma.dataset.upsert({
+      where: {
+        id: dataset_obj.id,
+      },
+      update: {},
+      create: dataset_obj,
+    });
+  });
+  await Promise.all(datasetPromises);
+
+  // upsert raw data - data product associations
+  await Promise.all(
+    data.dataset_hierarchical_association.map((sd) => prisma.dataset_hierarchy.upsert({
+      where: {
+        source_id_derived_id: sd,
+      },
+      update: {},
+      create: sd,
+    })),
+  );
+
+  // update dataset audit data
+  await Promise.all(
+    data.dataset_audit_data.map((d) => prisma.dataset_audit.upsert({
+      where: {
+        id: d.id,
+      },
+      update: {},
+      create: d,
+    })),
+  );
+
+  // create contact
+  await Promise.all(
+    data.contacts.map((c) => prisma.contact.upsert({
+      where: {
+        id: c.id,
+      },
+      update: {},
+      create: c,
+    })),
+  );
+
+  // create project data
+  await Promise.all(
+    data.projects.map((p) => prisma.project.upsert({
+      where: {
+        id: p.id,
+      },
+      update: {},
+      create: {
+        slug: normalize_name(p.name),
+        ...p,
+      },
+    })),
+  );
+
+  // create project user associations
+  await Promise.all(
+    data.project_user_assoc.map((pu) => prisma.project_user.upsert({
+      where: {
+        project_id_user_id: pu,
+      },
+      update: {},
+      create: pu,
+    })),
+  );
+
+  // create project dataset associations
+  await Promise.all(
+    data.project_dataset_assoc.map((pd) => prisma.project_dataset.upsert({
+      where: {
+        project_id_dataset_id: pd,
+      },
+      update: {},
+      create: pd,
+    })),
+  );
+
+  // create project contact associations
+  await Promise.all(
+    data.project_contact_assoc.map((pc) => prisma.project_contact.upsert({
+      where: {
+        project_id_contact_id: pc,
+      },
+      update: {},
+      create: pc,
+    })),
+  );
+
+  // upsert dataset_files
+  await put_dataset_files({ dataset_id: 1, num_files: 100, max_depth: 1 });
+  await put_dataset_files({ dataset_id: 2, num_files: 100, max_depth: 3 });
+  await put_dataset_files({ dataset_id: 3, num_files: 1000, max_depth: 2 });
+  await put_dataset_files({ dataset_id: 7, num_files: 100, max_depth: 1 });
+  await put_dataset_files({ dataset_id: 8, num_files: 100 });
+
+  // update the auto increment id's sequence numbers
+  const tables = ['dataset', 'user', 'role', 'dataset_audit', 'contact'];
+  await Promise.all(tables.map(update_seq));
+
+  // add metrics
+  // delete first to not overwrite data.
+  await prisma.metric.deleteMany();
+  await prisma.metric.createMany({
+    data: create_metrics_per_hour(72), // 72 hours = 3 days
+  });
+
+  // create data access logs for the last 1 year
+  const data_access_logs = await generate_data_access_logs(1);
+  // delete pre-existing records
+  await prisma.data_access_log.deleteMany();
+  await prisma.data_access_log.createMany({
+    data: data_access_logs,
+  });
+
+  // create staged datasets' logs for the last 1 year
+  const staged_logs = generate_staged_logs(1);
+  // delete pre-existing records
+  await prisma.dataset_state.deleteMany();
+  await prisma.dataset_state.createMany({
+    data: staged_logs,
+  });
+
+  // create stage request logs for the last 1 year
+  const stage_request_logs = await generate_stage_request_logs(1);
+  // delete pre-existing records
+  await prisma.stage_request_log.deleteMany();
+  await prisma.stage_request_log.createMany({
+    data: stage_request_logs,
+  });
+
+  // create instruments
+  // delete pre-existing records
+  await prisma.instrument.deleteMany();
+  await prisma.instrument.createMany({
+    data: _.range(0, 10).map((i) => ({
+      name: `Instrument ${i + 1}`,
+      host: `instrument ${i + 1}.iu.edu`,
+    })),
+  });
+
+  // Seed notification fixtures for E2E roles.
+  // A fresh preview has no prior test-login sessions to create these users.
+  // Insert them after the base fixtures so existing fixture user IDs stay stable.
+  if (process.env.BIOLOOP_PREVIEW_MODE === '1') {
+    await Promise.all(data.roles.map(async (role) => {
+      const username = config.get(`e2e.users.${role.name}.username`);
+      if (!username) throw new Error(`Missing preview username for ${role.name}`);
+      await prisma.user.upsert({
+        where: { username },
+        update: {},
+        create: {
+          username,
+          name: username,
+          cas_id: username,
+          email: `${username}@example.test`,
+          user_role: { create: { role_id: role.id } },
+        },
+      });
+    }));
+  }
+  runNotificationSeedScript(['e2eAdmin', 'e2eOperator', 'e2eUser']);
+}
+
+main()
+  .then(() => {
+    prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

@@ -1,0 +1,17 @@
+{
+  "baseURL": "TEST_BASE_URL",
+  "apiBaseURL": "TEST_API_BASE_URL",
+  "e2e": {
+    "users": {
+      "admin": {
+        "username": "E2E_USERS_ADMIN_USERNAME"
+      },
+      "operator": {
+        "username": "E2E_USERS_OPERATOR_USERNAME"
+      },
+      "user": {
+        "username": "E2E_USERS_USER_USERNAME"
+      }
+    }
+  }
+}

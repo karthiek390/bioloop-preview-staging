@@ -1,0 +1,128 @@
+const previewMode = import.meta.env.VITE_PREVIEW_MODE === "true";
+const previewOrigin = previewMode ? window.location.origin : null;
+
+const exports = {
+  mode: previewMode ? "ci" : "development",
+  preview: previewMode,
+  // vite server redirects traffic on URLs starting with apiBaseURL
+  // to http://${config.apiHost}:${config.apiPort} in dev environment
+  apiBasePath: "/api",
+  casReturn: previewMode
+    ? `${previewOrigin}/auth/iucas`
+    : import.meta.env.VITE_CAS_RETURN || "https://localhost/auth/iucas",
+  googleReturn: previewMode
+    ? `${previewOrigin}/auth/google`
+    : import.meta.env.VITE_GOOGLE_RETURN || "https://localhost/auth/google",
+  cilogonReturn: previewMode
+    ? `${previewOrigin}/auth/cil`
+    : import.meta.env.VITE_CILOGON_RETURN || "https://localhost/auth/cil",
+  microsoftReturn: previewMode
+    ? `${previewOrigin}/auth/microsoft`
+    : import.meta.env.VITE_MICROSOFT_RETURN ||
+      "https://localhost/auth/microsoft",
+  refreshTokenTMinusSeconds: {
+    appToken: 300,
+  },
+  analyticsId: "G-FOO",
+  appTitle: "BIOLOOP",
+  contact: {
+    app_admin: "bioloop-ops-l@list.iu.edu",
+  },
+  dataset_polling_interval: 10000,
+  paths: {
+    download: "",
+  },
+  file_browser: {
+    cache_busting_id: "fe09b01", // any random string different from the previous value will work
+  },
+  enable_delete_archive: true,
+  dataset: {
+    types: {
+      RAW_DATA: {
+        key: "RAW_DATA",
+        label: "Raw Data",
+        collection_path: "rawdata",
+        icon: "mdi-dna",
+      },
+      DATA_PRODUCT: {
+        key: "DATA_PRODUCT",
+        label: "Data Product",
+        collection_path: "dataproducts",
+        icon: "mdi-package-variant-closed",
+      },
+    },
+  },
+  download_types: {
+    SLATE_SCRATCH: "SLATE_SCRATCH",
+    BROWSER: "BROWSER",
+  },
+  metric_measurements: {
+    SDA: "sda",
+    SLATE_SCRATCH: "/N/scratch",
+    SLATE_SCRATCH_FILES: "/N/scratch files",
+  },
+  auth_enabled: {
+    google: !previewMode,
+    cilogon: !previewMode,
+    microsoft: !previewMode,
+  },
+  dashboard: {
+    active_tasks: {
+      steps: [
+        "await stability",
+        "inspect",
+        "archive",
+        "stage",
+        "validate",
+        "setup download",
+        "delete source",
+      ],
+      refresh_interval_ms: 10000,
+    },
+  },
+  alertForEnvironments: ["ci"],
+  enabledFeatures: {
+    genomeBrowser: true,
+    notifications: false,
+    import: {
+      enabledForRoles: ["admin"],
+    },
+    downloads: true,
+    signup: false,
+    uploads: {
+      enabledForRoles: ["admin"],
+    },
+    // Compute and send a BLAKE3 manifest-hash before each upload so the
+    // verification worker can confirm file integrity end-to-end.
+    upload_verify_checksums: true,
+    auto_create_project_on_dataset_creation: {
+      enabledForRoles: ["user"],
+    },
+    alerts: false,
+  },
+  notifications: {
+    pollingInterval: 5000, // milliseconds
+  },
+  alerts: {
+    maxDisplayCount: 1, // Maximum number of alerts to display at once
+  },
+  upload: {
+    // Maximum size per individual file (bytes). Must match upload.max_file_size_bytes
+    // in the API config. Enforced server-side by TUS; this value is used for
+    // client-side validation so users get an immediate error instead of a
+    // mid-upload rejection.
+    max_file_size_bytes:
+      parseInt(import.meta.env.VITE_UPLOAD_MAX_FILE_SIZE_BYTES) || 107374182400, // 100 GB default
+    // Cap concurrent file uploads to prevent browser resource exhaustion when
+    // uploading directories with many files.
+    max_concurrent_files:
+      parseInt(import.meta.env.VITE_UPLOAD_MAX_CONCURRENT_UPLOADS) || 4,
+    // TUS PATCH chunk size (bytes). Keeping this below proxy body-size limits
+    // prevents 413 errors on larger individual files.
+    tus_chunk_size_bytes:
+      parseInt(import.meta.env.VITE_UPLOAD_TUS_CHUNK_SIZE_BYTES) ||
+      25 * 1024 * 1024, // 25 MB
+  },
+};
+
+export default exports;

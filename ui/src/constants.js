@@ -1,0 +1,196 @@
+const exports = {
+  sidebar: {
+    user_items: [
+      {
+        icon: "mdi-flask",
+        title: "Projects",
+        path: "/projects",
+        test_id: "sidebar-projects",
+      },
+      {
+        icon: "mdi-folder-plus-outline",
+        title: "Create Dataset",
+        test_id: "sidebar-create-dataset",
+        children: [
+          {
+            feature_key: "import",
+            icon: "mdi-file-import-outline",
+            title: "Import",
+            path: "/datasets/imports",
+          },
+          {
+            feature_key: "uploads",
+            icon: "mdi-cloud-upload-outline",
+            title: "Upload",
+            path: "/datasets/uploads",
+          },
+        ],
+      },
+    ],
+    operator_items: [
+      {
+        icon: "mdi-monitor-dashboard",
+        title: "Dashboard",
+        path: "/dashboard",
+        test_id: "sidebar-dashboard",
+      },
+      // {
+      //   icon: "mdi-file-lock",
+      //   title: "Data Products",
+      //   path: "/dataproducts",
+      // },
+      // {
+      //   icon: "mdi-transition",
+      //   title: "Conversions",
+      //   path: "/conversions",
+      // },
+      // {
+      //   icon: "mdi-folder-upload",
+      //   title: "Data Uploader",
+      //   path: "/datauploader",  // cspell: disable-line
+      // },
+      {
+        icon: "mdi-dna",
+        title: "Raw Data",
+        path: "/rawdata",
+        test_id: "sidebar-raw-data",
+      },
+      {
+        icon: "mdi-package-variant-closed",
+        title: "Data Products",
+        path: "/dataproducts",
+        test_id: "sidebar-data-products",
+      },
+      {
+        icon: "mdi-table-account",
+        title: "User Management",
+        path: "/users",
+        test_id: "sidebar-user-management",
+      },
+      {
+        icon: "mdi-format-list-bulleted",
+        title: "Stats/Tracking",
+        path: "/stats",
+        test_id: "sidebar-stats-tracking",
+      },
+      {
+        icon: "mdi:map-marker-path",
+        title: "Workflows",
+        path: "/workflows",
+        test_id: "sidebar-workflows",
+      },
+      {
+        feature_key: "alerts",
+        icon: "mdi:alert-outline",
+        title: "Alerts",
+        path: "/alerts",
+        test_id: "sidebar-alerts",
+      },
+      // {
+      //   icon: "mdi-account-multiple",
+      //   title: "Group Management",
+      //   path: "/groups",
+      // },
+      // {
+      //   icon: 'mdi-delete-empty-outline',
+      //   title: 'Data Cleanup',
+      //   path: '/clean',
+      // },
+    ],
+    bottom_items: [
+      {
+        icon: "mdi-information",
+        title: "About",
+        path: "/about",
+        test_id: "sidebar-about",
+      },
+      {
+        icon: "mdi-account-details",
+        title: "Profile",
+        path: "/profile",
+        test_id: "sidebar-profile",
+      },
+      {
+        icon: "mdi-logout-variant",
+        title: "Logout",
+        path: "/auth/logout",
+        test_id: "sidebar-logout",
+      },
+    ],
+    admin_items: [],
+  },
+  UPLOAD_STATUSES: {
+    // Statuses that only appear in the UI
+    UNINITIATED: "UNINITIATED",
+    COMPUTING_CHECKSUMS: "COMPUTING_CHECKSUMS",
+    CHECKSUM_COMPUTATION_FAILED: "CHECKSUM_COMPUTATION_FAILED",
+    // Statuses that appear in the UI and are also persisted to the database
+    UPLOADING: "UPLOADING",
+    UPLOAD_FAILED: "UPLOAD_FAILED",
+    UPLOADED: "UPLOADED",
+    VERIFYING: "VERIFYING",
+    VERIFIED: "VERIFIED",
+    VERIFICATION_FAILED: "VERIFICATION_FAILED",
+    PROCESSING: "PROCESSING",
+    PROCESSING_FAILED: "PROCESSING_FAILED",
+    COMPLETE: "COMPLETE",
+    PERMANENTLY_FAILED: "PERMANENTLY_FAILED",
+  },
+  DATASET_CREATE_METHODS: {
+    UPLOAD: "UPLOAD",
+    IMPORT: "IMPORT",
+    SCAN: "SCAN",
+  },
+  auth: {
+    verify: {
+      response: {
+        status: {
+          SUCCESS: "success",
+          SIGNUP_REQUIRED: "signup_required",
+          NOT_A_USER: "not_a_user",
+        },
+      },
+    },
+  },
+  alerts: {
+    types: {
+      INFO: "INFO",
+      WARNING: "WARNING",
+      ERROR: "ERROR",
+    },
+    statuses: {
+      SCHEDULED: "SCHEDULED",
+      ACTIVE: "ACTIVE",
+      EXPIRED: "EXPIRED",
+    },
+  },
+  notificationTheme: {
+    filters: {
+      unread: {
+        color: "primary",
+        iconOn: "mdi:email",
+        iconOff: "mdi:email-outline",
+      },
+      read: {
+        color: "info",
+        iconOn: "mdi:email-open",
+        iconOff: "mdi:email-open-outline",
+      },
+      bookmarked: {
+        color: "success",
+        iconOn: "mdi:bookmark",
+        iconOff: "mdi:bookmark-outline",
+      },
+    },
+    delivery: {
+      roleBroadcast: { color: "primary" },
+    },
+    actions: {
+      read: { color: "info", icon: "mdi:email-open-outline" },
+      bookmark: { color: "success", icon: "mdi:bookmark-outline" },
+      link: { color: "primary", icon: "mdi:open-in-new" },
+    },
+  },
+};
+
+export default exports;

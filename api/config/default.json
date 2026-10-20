@@ -1,0 +1,170 @@
+{
+  "mode": "default",
+  "app_id": "bioloop-dev.sca.iu.edu",
+  "express": {
+    "port": 3030,
+    "host": "localhost"
+  },
+  "logger": {
+    "level": "debug"
+  },
+  "workflow_server": {
+    "base_url": "http://127.0.0.1:5001",
+    "auth_token": ""
+  },
+  "auth": {
+    "mode": "dev",
+    "jwt": {
+      "iss": "localhost",
+      "ttl_milliseconds": 604800000,
+      "pub": "keys/auth.pub",
+      "key": "keys/auth.key",
+      "sign_algorithm": "RS256"
+    },
+    "google": {
+      "enabled": true,
+      "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_endpoint": "https://oauth2.googleapis.com/token",
+      "scope": "openid email",
+      "client_id": "",
+      "client_secret": ""
+    },
+    "cilogon": {
+      "enabled": true,
+      "authorization_endpoint": "https://cilogon.org/authorize",
+      "token_endpoint": "https://cilogon.org/oauth2/token",
+      "scope": "openid+email",
+      "client_id": "",
+      "client_secret": ""
+    },
+    "microsoft": {
+      "enabled": true,
+      "authorization_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "token_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      "scope": "https://graph.microsoft.com/User.Read",
+      "client_id": "",
+      "client_secret": ""
+    },
+    "auto_sign_up": {
+      "enabled": false,
+      "default_role": "user"
+    },
+    "signup": {
+      "default_role": "user",
+      "dev_default_role": "admin",
+      "jwt": {
+        "scope": "signup",
+        "ttl_milliseconds": 600000
+      },
+      "auto_generate_username_if_not_unique": true,
+      "max_username_suffix": 999
+    }
+  },
+  "oauth": {
+    "base_url": "",
+    "download": {
+      "client_id": "",
+      "client_secret": "",
+      "scope_prefix": "download_file:"
+    }
+  },
+  "upload": {
+    "path": "/opt/sca/data/uploads",
+    "host_path": "",
+    "max_file_size_bytes": 107374182400
+  },
+  "download_server": {
+    "base_url": ""
+  },
+  "workflow_registry": {
+    "integrated": {
+      "description": "An end-to-end workflow to inspect, archive, state and validate a dataset",
+      "steps": [
+        {
+          "name": "await stability",
+          "task": "await_stability"
+        },
+        {
+          "name": "inspect",
+          "task": "inspect_dataset"
+        },
+        {
+          "name": "archive",
+          "task": "archive_dataset"
+        },
+        {
+          "name": "stage",
+          "task": "stage_dataset"
+        },
+        {
+          "name": "validate",
+          "task": "validate_dataset"
+        },
+        {
+          "name": "setup_download",
+          "task": "setup_dataset_download"
+        }
+      ]
+    },
+    "stage": {
+      "steps": [
+        {
+          "name": "stage",
+          "task": "stage_dataset"
+        },
+        {
+          "name": "validate",
+          "task": "validate_dataset"
+        },
+        {
+          "name": "setup_download",
+          "task": "setup_dataset_download"
+        }
+      ]
+    },
+    "delete": {
+      "steps": [
+        {
+          "name": "delete",
+          "task": "delete_dataset"
+        }
+      ]
+    }
+  },
+  "dataset_types": [
+    "RAW_DATA",
+    "DATA_PRODUCT"
+  ],
+  "system_user": {
+    "username": "svc_tasks"
+  },
+  "e2e": {
+    "users": {
+      "admin": {
+        "username": ""
+      },
+      "operator": {
+        "username": ""
+      },
+      "user": {
+        "username": ""
+      }
+    }
+  },
+  "enabled_features": {
+    "import": true,
+    "upload": true,
+    "fs": true,
+    "downloads": true,
+    "signup": true,
+    "auto_create_project_on_dataset_creation": true,
+    "notifications": true
+  },
+  "institution_types": [
+    "Commercial",
+    "External Academic",
+    "Internal Academic",
+    "Non-profit",
+    "Other"
+  ]
+}

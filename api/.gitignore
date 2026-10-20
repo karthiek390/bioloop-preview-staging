@@ -1,0 +1,47 @@
+node_modules
+
+# Keep environment variables out of version control
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+# cspell:ignore pids
+pids
+*.pid
+*.seed
+
+# Optional npm cache directory
+.npm
+.pnpm-store
+
+# Optional REPL history
+.node_repl_history
+.pnpm-store
+
+# keys
+keys/*.pub
+keys/*.key
+keys/jwks.json
+
+#swagger auto generate file
+swagger_output.json
+
+# generated reports
+reports
+
+# Ignore personal test files
+src/_test.js
+coverage
+
+# Used to populate the production Admins, Operators, and Users in the database
+admins.json
+operators.json
+users.json
+# Used to populate the production Import Sources in the database
+import_sources.json
+
+/notebooks
