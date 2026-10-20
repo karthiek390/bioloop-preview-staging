@@ -27,7 +27,7 @@
 
         <div v-if="config.preview" class="flex flex-col gap-3 px-8 mb-3">
           <p class="text-center text-sm">
-            Temporary preview using synthetic data.
+            UI/API preview acceptance test.
           </p>
           <va-button
             v-for="role in ['admin', 'operator', 'user']"
