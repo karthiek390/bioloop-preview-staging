@@ -76,12 +76,27 @@ jobs:
           git -C source fetch --depth=1 origin "refs/pull/${PREVIEW_PR}/head"
           test "$(git -C source rev-parse FETCH_HEAD)" = "$PREVIEW_SHA"
           git -C source checkout --detach "$PREVIEW_SHA"
-      - name: Run isolated preview until expiration
+      - name: Start protected preview
         shell: bash
         run: |
           export PREVIEW_SOURCE_DIR="$GITHUB_WORKSPACE/source"
           export PREVIEW_STATE_DIR="$RUNNER_TEMP/bioloop-preview"
-          timeout --signal=TERM --kill-after=60s 175m bash trusted/tools/preview/run.sh
+          timeout --signal=TERM --kill-after=60s 50m bash trusted/tools/preview/run.sh start
+      # Job summaries appear when a job finishes. This public-only artifact is
+      # available immediately, while the same runner keeps the preview alive.
+      - name: Publish live preview details
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: preview-ready
+          path: ${{ runner.temp }}/bioloop-preview/preview-ready.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Keep preview available until expiration
+        shell: bash
+        run: |
+          export PREVIEW_SOURCE_DIR="$GITHUB_WORKSPACE/source"
+          export PREVIEW_STATE_DIR="$RUNNER_TEMP/bioloop-preview"
+          timeout --signal=TERM --kill-after=60s 125m bash trusted/tools/preview/run.sh wait
       - name: Final cleanup
         if: always()
         shell: bash
